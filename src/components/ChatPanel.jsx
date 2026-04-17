@@ -1,6 +1,39 @@
 import { useState, useRef, useEffect } from 'react';
 
 /**
+ * Lightweight inline markdown renderer.
+ * Handles **bold**, *italic*, and preserves line breaks.
+ */
+function renderMarkdown(text) {
+  if (!text) return null;
+  // Split by bold markers first, then italic within each segment
+  const parts = [];
+  const regex = /(\*\*(.+?)\*\*|\*(.+?)\*)/g;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = regex.exec(text)) !== null) {
+    // Add text before this match
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    if (match[2]) {
+      // **bold**
+      parts.push(<strong key={match.index} className="font-semibold">{match[2]}</strong>);
+    } else if (match[3]) {
+      // *italic*
+      parts.push(<em key={match.index} className="italic opacity-90">{match[3]}</em>);
+    }
+    lastIndex = match.index + match[0].length;
+  }
+  // Add remaining text
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+  return parts.length > 0 ? parts : text;
+}
+
+/**
  * ChatPanel — Right column.
  * Shows chat messages with streaming + input field.
  */
@@ -84,7 +117,7 @@ export default function ChatPanel({
                   </div>
                 )}
                 <div className="whitespace-pre-wrap">
-                  {msg.content}
+                  {msg.role === 'assistant' ? renderMarkdown(msg.content) : msg.content}
                   {msg.role === 'assistant' && isStreaming && msg === chatMessages[chatMessages.length - 1] && (
                     <span className="inline-block w-1.5 h-4 bg-[var(--color-text-primary)] ml-0.5 animate-pulse" />
                   )}
