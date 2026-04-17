@@ -75,14 +75,7 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }) {
               value={localSettings.apiKey}
               onChange={(e) => handleChange('apiKey', e.target.value)}
               placeholder="gsk_..."
-              className="
-                w-full px-4 py-2.5 rounded-xl text-sm font-mono
-                bg-[var(--color-bg-input)] text-[var(--color-text-primary)]
-                border border-[var(--color-border-subtle)]
-                focus:outline-none focus:border-[var(--color-border-accent)]
-                placeholder:text-[var(--color-text-muted)]
-                transition-colors
-              "
+              className="px-4 py-2.5 font-mono text-sm input-field"
             />
             <p className="mt-1.5 text-[11px] text-[var(--color-text-muted)]">
               Get your key at{' '}
@@ -204,13 +197,7 @@ function PromptField({ id, label, value, onChange, onReset }) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={6}
-        className="
-          w-full px-4 py-3 rounded-xl text-xs font-mono leading-relaxed
-          bg-[var(--color-bg-input)] text-[var(--color-text-primary)]
-          border border-[var(--color-border-subtle)]
-          focus:outline-none focus:border-[var(--color-border-accent)]
-          resize-y min-h-24 transition-colors
-        "
+        className="px-4 py-3 font-mono text-xs leading-relaxed resize-y min-h-24 input-field"
       />
     </div>
   );

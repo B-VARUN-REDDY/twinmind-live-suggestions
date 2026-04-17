@@ -47,20 +47,11 @@ export function useAudioRecorder({ timeslice = 30000, onAudioChunk, onError }) {
 
       const recorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = recorder;
-      chunksRef.current = [];
 
       recorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) {
-          // Skip very small blobs (likely silence or < 1 second)
-          // ~16KB is roughly 1 second of webm/opus audio
-          if (event.data.size < 5000) return;
-
-          chunksRef.current.push(event.data);
-
-          // Create a self-contained blob from ALL chunks so far for this interval
-          // This ensures each transcription request gets playable audio
-          const blob = new Blob([event.data], { type: mimeType });
-          onAudioChunk?.(blob);
+        // We only trigger when stop is called and chunk is finalized
+        if (event.data && event.data.size > 5000) {
+          onAudioChunk?.(event.data);
         }
       };
 
@@ -68,9 +59,18 @@ export function useAudioRecorder({ timeslice = 30000, onAudioChunk, onError }) {
         onError?.(new Error('Recording error: ' + event.error?.message || 'Unknown'));
       };
 
-      recorder.start(timeslice);
+      recorder.start();
       setIsRecording(true);
       setIsPaused(false);
+
+      // Force restart every timeslice to ensure complete WebM container headers for Whisper
+      chunksRef.current = setInterval(() => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+          mediaRecorderRef.current.stop();
+          mediaRecorderRef.current.start();
+        }
+      }, timeslice);
+
     } catch (err) {
       if (err.name === 'NotAllowedError') {
         onError?.(new Error('Microphone access denied. Please enable microphone permissions in your browser settings.'));
@@ -83,6 +83,9 @@ export function useAudioRecorder({ timeslice = 30000, onAudioChunk, onError }) {
   }, [timeslice, onAudioChunk, onError, getMimeType]);
 
   const stopRecording = useCallback(() => {
+    if (chunksRef.current) {
+      clearInterval(chunksRef.current);
+    }
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     }
@@ -91,7 +94,6 @@ export function useAudioRecorder({ timeslice = 30000, onAudioChunk, onError }) {
       streamRef.current = null;
     }
     mediaRecorderRef.current = null;
-    chunksRef.current = [];
     setIsRecording(false);
     setIsPaused(false);
   }, []);
