@@ -79,23 +79,42 @@ export function useSuggestions({ apiKey, settings, onError }) {
         { model: settings.model, temperature: 0.7, maxTokens: 1024 }
       );
 
-      // Parse JSON from response (handle markdown code blocks)
-      let suggestions;
+      // Parse JSON from response (handle markdown code blocks and object-wrapped arrays)
+      let suggestions = null;
       try {
         let jsonStr = response.trim();
-        // Strip markdown code fences if present
         if (jsonStr.startsWith('```')) {
-          jsonStr = jsonStr.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+          jsonStr = jsonStr.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
         }
-        suggestions = JSON.parse(jsonStr);
-      } catch {
-        // Try to extract JSON array from response text
-        const match = response.match(/\[[\s\S]*\]/);
-        if (match) {
-          suggestions = JSON.parse(match[0]);
-        } else {
-          throw new Error('Could not parse suggestions from model response');
+        
+        let parsed = JSON.parse(jsonStr);
+        if (Array.isArray(parsed)) {
+          suggestions = parsed;
+        } else if (parsed && typeof parsed === 'object') {
+          // If the model returns {"suggestions": [...]} instead of just [...]
+          const keys = Object.keys(parsed);
+          for (const key of keys) {
+            if (Array.isArray(parsed[key])) {
+              suggestions = parsed[key];
+              break;
+            }
+          }
         }
+      } catch (e1) {
+        // Fallback: Use Regex to extract the first valid JSON Array
+        const arrayMatch = response.match(/\[[\s\S]*\]/);
+        if (arrayMatch) {
+          try {
+            suggestions = JSON.parse(arrayMatch[0]);
+          } catch (e2) {
+            console.error('TwinMind Debug: Regex array parsing failed', e2);
+          }
+        }
+      }
+
+      if (!suggestions || !Array.isArray(suggestions)) {
+        console.error('TwinMind Debug: Raw LLM Output:', response);
+        throw new Error('LLM failed to return a valid JSON array format.');
       }
 
       // Validate and normalize
